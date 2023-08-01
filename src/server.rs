@@ -1,11 +1,15 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::Error;
+use std::thread;
+
+use super::connection;
 
 #[derive(Debug)]
 pub struct IRCServer {
     listener: TcpListener,
-    connections: Vec<TcpStream>,
+    connections: Vec<connection::connection>,
 }
+
 pub fn bind(host: &str, port: i32) -> Result<TcpListener, String> {
     let listener: Result<TcpListener, std::io::Error> = TcpListener::bind(format!("{}:{}", host, port));
     match listener {
@@ -23,10 +27,21 @@ impl IRCServer {
         return Ok(socket_server);
     }
 
+    pub fn handle_connection(stream: &connection::connection) {
+        println!("Are we reaching here?");
+        println!("{:?}", stream.host);
+    }
+
     pub fn accept_connections(&mut self){
         for stream in self.listener.incoming() {
             match stream {
-                Ok(tcp_stream) => self.connections.push(tcp_stream),
+                Ok(tcp_stream) => {
+                    let new_connection = connection::connection::new(tcp_stream);
+                    thread::spawn(move || {
+                        IRCServer::handle_connection(&new_connection);
+                    });
+
+                },
                 _ => panic!("Error occured while connecting.")
             };
         };

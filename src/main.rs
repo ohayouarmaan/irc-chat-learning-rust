@@ -1,11 +1,14 @@
-use std::net::{TcpListener, TcpStream};
+use std::{net::{TcpListener, TcpStream}, thread};
 
 mod server;
+mod connection;
+mod Server;
+
 fn main() {
     let listener: Result<server::IRCServer, String> = server::IRCServer::new("0.0.0.0", 8000);
-    let main_irc_server = match listener {
+    let mut main_irc_server = match listener {
         Ok(main_server) => main_server,
         _ => panic!("Error occured while connecting to the address.")
     };
-    println!("{:?}", main_irc_server);
+    main_irc_server.accept_connections();
 }

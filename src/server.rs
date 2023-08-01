@@ -1,4 +1,5 @@
 use std::net::{TcpListener, TcpStream};
+use std::io::Error;
 
 #[derive(Debug)]
 pub struct IRCServer {
@@ -22,7 +23,12 @@ impl IRCServer {
         return Ok(socket_server);
     }
 
-    pub fn append_connections(&mut self, connection: TcpStream) {
-        self.connections.push(connection);
+    pub fn accept_connections(&mut self){
+        for stream in self.listener.incoming() {
+            match stream {
+                Ok(tcp_stream) => self.connections.push(tcp_stream),
+                _ => panic!("Error occured while connecting.")
+            };
+        };
     }
 }

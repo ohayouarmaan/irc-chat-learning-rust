@@ -1,6 +1,6 @@
 use std::net::{TcpStream, IpAddr};
 
-#[derive(Debug)]
+#[derive(Debug )]
 pub struct connection {
     pub stream: TcpStream,
     pub host: IpAddr

@@ -2,11 +2,22 @@ import socket
 s = socket.socket()
 s.connect(("localhost", 8000))
 
-s.send('wow'.encode("utf8"))
 while True:
     try:
         message = input("> ")
-        s.send(message.encode("utf8"))
+        if message == "rickroll":
+            with open("./important data.jpg", "rb") as f:
+                content = f.read()
+                length = str(len(content)).encode("utf8")
+                print(length)
+                s.send(length)
+                s.send(content)
+        else:
+            content = message
+            length = str(len(content)).encode("utf8")
+            print(length)
+            s.send(length)
+            s.send(content.encode("utf8"))
     except KeyboardInterrupt:
         s.close()
         exit()

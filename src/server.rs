@@ -39,7 +39,7 @@ impl IRCServer {
     }
 
     pub fn handle_connection(msg_recv: crossbeam_channel::Receiver<connection>) {
-        let mut value = msg_recv.recv().unwrap();
+        let value = msg_recv.recv().unwrap();
         let mut reader = BufReader::new(value.stream);
         let mut line  = String::new();
         print!("{:?}", value.host);
@@ -52,21 +52,50 @@ impl IRCServer {
             println!("{:?}", command_parts);
             line.clear()
         }
-
     }
 
-    pub fn handle_connection_directly(&mut self) {
-        let mut value = self.msg_recievers[0].recv().unwrap();
+    pub fn handle_connection_directly(&mut self, recv: crossbeam_channel::Receiver<connection>) {
+        let mut value = recv.recv().unwrap();
         thread::spawn(move || {
-            let mut line = [0u8; 1024];
             loop {
+                let mut line = [0u8; 1024];
                 let msg = value.stream.read(&mut line).unwrap();
-                if(msg != 0) {
+                if msg != 0 {
                     let mut line = line.to_vec();
 
                     match String::from_utf8(line.clone()) {
                         Ok(mut s) => {
-                            println!("{:?}", s.trim_end().split_whitespace().collect::<Vec<&str>>());
+                            s = s.replace("\0", "");
+                            let mut message_value: Vec<u8> = Vec::new();
+                            let length = s.trim_end().parse::<usize>().unwrap();
+                            println!("length: {}", length);
+                            let mut buffer = [0u8; 1024];
+                            if (length / 1024) >= 1 {
+                                loop {
+                                    let recieved_value = value.stream.read(&mut buffer).unwrap();
+                                    if recieved_value != 0 {
+                                        for b in buffer {
+                                            message_value.push(b);
+                                        }
+                                        buffer = [0u8; 1024];
+                                        if (length) <= message_value.len() {
+                                            break;
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            } else {
+                                let recieved_value = value.stream.read(&mut buffer).unwrap();
+                                if recieved_value != 0 {
+                                    for b in buffer {
+                                        message_value.push(b);
+                                    }
+                                    buffer = [0u8; 1024];
+                                    println!("{:?}", message_value);
+                                }
+                            }
+                            message_value = Vec::from(&message_value[0..length]);
                         },
                         _ => {}
                     }
@@ -78,10 +107,12 @@ impl IRCServer {
 
     pub fn accept_connections(&mut self){
         loop {
-            let (mut tcp_stream, addr) = self.listener.accept().unwrap();
-            let mut new_connection = connection::new(tcp_stream);
-            self.msg_sender.send(new_connection);
-            self.handle_connection_directly();
+            let (tcp_stream, _addr) = self.listener.accept().unwrap();
+            let new_connection = connection::new(tcp_stream);
+            let (ser, recv) = crossbeam_channel::unbounded::<connection>();
+            // self.msg_sender.send(new_connection);
+            ser.send(new_connection).unwrap();
+            self.handle_connection_directly(recv);
         }
     }
 }

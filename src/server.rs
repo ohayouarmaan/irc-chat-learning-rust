@@ -1,12 +1,7 @@
-use core::panic;
-use std::convert::Infallible;
 use std::net::{TcpListener, TcpStream, SocketAddr};
 use std::io::{Error, ErrorKind, BufReader};
 use std::thread;
 use std::io::Read;
-use std::io::prelude::*;
-
-use crossbeam_channel::unbounded;
 
 use super::connection::connection;
 
@@ -14,8 +9,6 @@ use super::connection::connection;
 pub struct IRCServer {
     listener: TcpListener,
     connections: Vec<connection>,
-    msg_sender: crossbeam_channel::Sender<connection>,
-    msg_recievers: Vec<crossbeam_channel::Receiver<connection>>
 }
 
 pub fn bind(host: &str, port: i32) -> Result<TcpListener, String> {
@@ -28,34 +21,15 @@ pub fn bind(host: &str, port: i32) -> Result<TcpListener, String> {
 
 impl IRCServer {
     pub fn new(host: &str, port: i32) -> Result<Self, String> {
-        let (s, r) = crossbeam_channel::unbounded::<connection>();
         let socket_server: Self = Self {
             listener: bind(host, port)?,
             connections: vec![],
-            msg_sender: s,
-            msg_recievers: vec![r]
         };
         return Ok(socket_server);
     }
 
-    pub fn handle_connection(msg_recv: crossbeam_channel::Receiver<connection>) {
-        let value = msg_recv.recv().unwrap();
-        let mut reader = BufReader::new(value.stream);
-        let mut line  = String::new();
-        print!("{:?}", value.host);
-        while let Ok(len) = reader.read_line(&mut line) {
-            if len == 0 {
-                break;
-            }
-    
-            let command_parts: Vec<&str> = line.trim_end().split_whitespace().collect();
-            println!("{:?}", command_parts);
-            line.clear()
-        }
-    }
-
-    pub fn handle_connection_directly(&mut self, recv: crossbeam_channel::Receiver<connection>) {
-        let mut value = recv.recv().unwrap();
+    pub fn handle_connection_directly(&mut self, recv: connection) {
+        let mut value = recv;
         thread::spawn(move || {
             loop {
                 let mut line = [0u8; 1024];
@@ -92,10 +66,10 @@ impl IRCServer {
                                         message_value.push(b);
                                     }
                                     buffer = [0u8; 1024];
-                                    println!("{:?}", message_value);
                                 }
                             }
                             message_value = Vec::from(&message_value[0..length]);
+                            println!("MESSAGE RECIEVED OF LENGTH: {}", message_value.len());
                         },
                         _ => {}
                     }
@@ -109,10 +83,7 @@ impl IRCServer {
         loop {
             let (tcp_stream, _addr) = self.listener.accept().unwrap();
             let new_connection = connection::new(tcp_stream);
-            let (ser, recv) = crossbeam_channel::unbounded::<connection>();
-            // self.msg_sender.send(new_connection);
-            ser.send(new_connection).unwrap();
-            self.handle_connection_directly(recv);
+            self.handle_connection_directly(new_connection);
         }
     }
 }

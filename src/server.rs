@@ -31,49 +31,15 @@ impl IRCServer {
     pub fn handle_connection_directly(&mut self, recv: connection) {
         let mut value = recv;
         thread::spawn(move || {
-            loop {
-                let mut line = [0u8; 1024];
-                let msg = value.stream.read(&mut line).unwrap();
-                if msg != 0 {
-                    let mut line = line.to_vec();
-
-                    match String::from_utf8(line.clone()) {
-                        Ok(mut s) => {
-                            s = s.replace("\0", "");
-                            let mut message_value: Vec<u8> = Vec::new();
-                            let length = s.trim_end().parse::<usize>().unwrap();
-                            println!("length: {}", length);
-                            let mut buffer = [0u8; 1024];
-                            if (length / 1024) >= 1 {
-                                loop {
-                                    let recieved_value = value.stream.read(&mut buffer).unwrap();
-                                    if recieved_value != 0 {
-                                        for b in buffer {
-                                            message_value.push(b);
-                                        }
-                                        buffer = [0u8; 1024];
-                                        if (length) <= message_value.len() {
-                                            break;
-                                        }
-                                    } else {
-                                        break;
-                                    }
-                                }
-                            } else {
-                                let recieved_value = value.stream.read(&mut buffer).unwrap();
-                                if recieved_value != 0 {
-                                    for b in buffer {
-                                        message_value.push(b);
-                                    }
-                                    buffer = [0u8; 1024];
-                                }
-                            }
-                            message_value = Vec::from(&message_value[0..length]);
-                            println!("MESSAGE RECIEVED OF LENGTH: {}", message_value.len());
-                        },
-                        _ => {}
+            loop  {
+                let mut message = value.recieve();
+                match message {
+                    Ok(msg) => {
+                        println!("New Message Recieved: {:?}", msg.len());
+                    },
+                    Err(e) => {
+                        continue;
                     }
-                    line.clear();
                 }
             }
         });

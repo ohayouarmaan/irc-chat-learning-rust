@@ -2,6 +2,7 @@ use std::{net::{TcpListener, TcpStream}, thread};
 
 mod server;
 mod connection;
+mod rooms;
 mod Server;
 
 
